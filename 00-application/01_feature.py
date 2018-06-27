@@ -10,69 +10,15 @@ import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import MinMaxScaler, Imputer, LabelEncoder
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.model_selection import StratifiedKFold, KFold, cross_val_score
 from sklearn.metrics import roc_auc_score
+
+from bayes_opt import BayesianOptimization
 
 from utils import draw_feature_distribution, OOFPreds, display_importances
 
 warnings.filterwarnings('ignore')
 plt.rcParams.update({'figure.max_open_warning': 200})
-
-
-def kfold(x, y, x_test, num_folds, features, stratified=False):
-    """用于评估模型的函数
-    Args:
-        x, y, x_test：数据
-        num_folds：k折交叉验证
-        features: 特征
-        stratified：是否根据label进行分层抽样
-    Return:
-
-
-    Raises:
-
-    """
-    # Divide in training/validation and test data
-
-    print("Starting LightGBM. Train shape: {}, test shape: {}".format(x.shape, x_test.shape))
-    # Cross validation model
-    if stratified:
-        folds = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=1001)
-    else:
-        folds = KFold(n_splits=num_folds, shuffle=True, random_state=1001)
-    # Create arrays and dataframes to store results
-    oof_preds = np.zeros(x.shape[0])
-    sub_preds = np.zeros(x_test.shape[0])
-    feature_importance_df = pd.DataFrame()
-
-    for n_fold, (train_idx, valid_idx) in enumerate(folds.split(x, y)):
-        train_x, train_y = x[train_idx, :], y[train_idx]
-        valid_x, valid_y = x[valid_idx, :], y[valid_idx]
-
-        clf = LogisticRegression(C=0.0001)
-
-        clf.fit(train_x, train_y)
-
-        oof_preds[valid_idx] = clf.predict_proba(valid_x)[:, 1]
-        sub_preds += clf.predict_proba(x_test)[:, 1] / folds.n_splits
-
-        fold_importance_df = pd.DataFrame()
-        fold_importance_df["feature"] = features
-        print('feature len: {}'.format(len(features)))
-        print('coef len: {}'.format(len(clf.coef_[0])))
-        print(clf.coef_[0])
-        fold_importance_df["importance"] = clf.coef_[0]
-        fold_importance_df["fold"] = n_fold + 1
-        feature_importance_df = pd.concat([feature_importance_df, fold_importance_df], axis=0)
-        print('Fold %2d AUC : %.6f' % (n_fold + 1, roc_auc_score(valid_y, oof_preds[valid_idx])))
-        del clf, train_x, train_y, valid_x, valid_y
-        gc.collect()
-
-    print('Full AUC score %.6f' % roc_auc_score(y, oof_preds))
-    # Write submission file and plot feature importance
-
-    display_importances(feature_importance_df)
-    return sub_preds, feature_importance_df
 
 
 def missing_values_table(df):
@@ -103,9 +49,9 @@ def missing_values_table(df):
     return mis_val_table_ren_columns
 
 
-def main(debug=False):
-    if debug == True:
-        rows = 2000
+def main(debug=2000):
+    if debug is not False:
+        rows = debug
     else:
         rows = None
 
@@ -339,6 +285,14 @@ def main(debug=False):
     train = pd.DataFrame(train, columns=features)
     test = pd.DataFrame(test, columns=features)
 
+    # ----------------------------------------------------------------------------------------------------
+    
+    # 尝试用 bayesian optimization 给 logistic 回归调参
+    
+    # ----------------------------------------------------------------------------------------------------
+    print(train.shape)
+    print(train_labels.ravel().reshape(len(train_labels), 1).shape)
+
 
     # ----------------------------------------------------------------------------------------------------
 
@@ -385,4 +339,4 @@ def main(debug=False):
 
 
 if __name__ == '__main__':
-    main(debug=False)
+    main(debug=10000)
