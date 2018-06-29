@@ -402,3 +402,12 @@ feature_matrix.to_csv('feature_matrix.csv', index = False)
 负债超过信用额度的  可以新建一个特征
 
 `AMT_BALANCE	AMT_CREDIT_LIMIT_ACTUAL` 平衡金额 大于 信用金额  说明 边消费边还款啊 可以计算差值
+
+
+## 其他文档学习
+
+[Upsample minority class and ligthGBM
+](https://www.kaggle.com/cast42/upsample-minority-class-and-ligthgbm)
+
+- unsample
+- Cohen's effect size

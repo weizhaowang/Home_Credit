@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib
 import numpy as np
 import seaborn as sns
+import scipy.stats as stats
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -23,7 +24,7 @@ def rand_jitter(arr):
     return arr + np.random.randn(len(arr))
 
 
-def draw_feature_distribution(df, column):
+def draw_feature_distribution(df, column, foldname):
     column_values = df[df[column].notna()][column]
     # group by target
     class_0_values = df[df[column].notna() & (df['TARGET']==0)][column]
@@ -100,7 +101,7 @@ def draw_feature_distribution(df, column):
 
         plt.xticks(x_0 + 2 * bar_width / 3, all_categories, fontsize=16)
 
-    plt.savefig('./pic/num_continue/'+ column +'.png')
+    plt.savefig('./pic/' + foldname + '/' + column +'.png')
     # plt.show()
 
 
@@ -222,6 +223,7 @@ def OOFPreds(X, y, test_X, params, n_splits=5, random_state=23, clf='lgb'):
             oof_preds[val_idx] = pred_val
             sub_preds += pred_test / folds.n_splits
 
+
             valid_score = roc_auc_score(val_y, pred_val)
             train_score = roc_auc_score(trn_y, pred_train)
 
@@ -257,3 +259,73 @@ def OOFPreds(X, y, test_X, params, n_splits=5, random_state=23, clf='lgb'):
     sub_preds = pd.Series(sub_preds.flatten(), index=test_X.index).rename('TARGET')
 
     return oof_preds, sub_preds, feature_importance, metrics
+
+def skew_plot(app_train, features, filename):
+
+    fcols = 2
+    frows = len(features)
+    plt.figure(figsize=(4 * fcols, 6 * frows))
+    i = 0
+    for col in features:
+        dat = app_train[[col, 'TARGET']].dropna()
+
+        i += 1
+        plt.subplot(frows, fcols, i)
+        sns.distplot(dat[col], fit=stats.norm)
+        plt.title(col + ' Original')
+        plt.xlabel('')
+
+        i += 1
+        plt.subplot(frows, fcols, i)
+        _ = stats.probplot(dat[col], plot=plt)
+        plt.title('skew=' + '{:.4f}'.format(stats.skew(dat[col])))
+        plt.xlabel('')
+        plt.ylabel('')
+
+    plt.tight_layout(h_pad=2.5)
+    plt.savefig(filename)
+    plt.show()
+
+
+def kde_plot(app_train, features, filename):
+    plt.figure(figsize=(8, 12))
+    for i, col in enumerate(features):
+        plt.subplot(len(features), 1, i + 1)
+        sns.kdeplot(app_train.loc[app_train['TARGET'] == 0, col], label='target==0')
+        sns.kdeplot(app_train.loc[app_train['TARGET'] == 1, col], label='target==1')
+        plt.title(col)
+        plt.xlabel(col);
+        plt.ylabel('Density');
+
+    plt.tight_layout(h_pad=2.5)
+    plt.savefig(filename)
+    plt.show()
+
+def scale_minmax(col):
+    return (col-col.min())/(col.max()-col.min())
+
+def missing_values_table(df):
+    mis_val = df.isnull().sum()
+
+    # Percentage of missing values
+    mis_val_percent = 100 * df.isnull().sum() / len(df)
+
+    # Make a table with the results
+    mis_val_table = pd.concat([mis_val, mis_val_percent], axis=1)
+
+    # Rename the columns
+    mis_val_table_ren_columns = mis_val_table.rename(
+        columns={0: 'Missing Values', 1: '% of Total Values'})
+
+    # Sort the table by percentage of missing descending
+    mis_val_table_ren_columns = mis_val_table_ren_columns[
+        mis_val_table_ren_columns.iloc[:, 1] != 0].sort_values(
+        '% of Total Values', ascending=False).round(1)
+
+    # Print some summary information
+    print("Your selected dataframe has " + str(df.shape[1]) + " columns.\n"
+                                                              "There are " + str(mis_val_table_ren_columns.shape[0]) +
+          " columns that have missing values.")
+
+    # Return the dataframe with missing information
+    return mis_val_table_ren_columns
